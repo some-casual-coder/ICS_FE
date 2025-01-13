@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "705275486056",
+    "project_id": "duet-8fbde",
+    "storage_bucket": "duet-8fbde.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:705275486056:android:6b70f5530d5d250c02c0dd",
+        "android_client_info": {
+          "package_name": "com.example.fliccsy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "705275486056-5tk026huvadk1c6rsm4ci2gtisqbkqd5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.fliccsy",
+            "certificate_hash": "c28f3290d3466783e0d5019dcd6cdbe3c6bd5c35"
+          }
+        },
+        {
+          "client_id": "705275486056-a766ed2gliadmv7qu7hr8725b2m5ueud.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCShhtswOLNivTbtmRlsma3t1RecFDB5jY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "705275486056-a766ed2gliadmv7qu7hr8725b2m5ueud.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "705275486056-k845dgomvd6hmkcjdjbc7srebtpms9oe.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.fliccsy.RunnerTests"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
