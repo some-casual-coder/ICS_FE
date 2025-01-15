@@ -1,18 +1,22 @@
+import 'package:fliccsy/providers/auth_provider.dart';
+import 'package:fliccsy/providers/submission_provider.dart';
+import 'package:fliccsy/screens/onboarding/submitting_screen.dart';
 import 'package:fliccsy/theme/app_colors.dart';
 import 'package:fliccsy/widgets/genre_selector.dart';
 import 'package:fliccsy/widgets/movie_selector.dart';
 import 'package:fliccsy/widgets/preferences_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
@@ -41,12 +45,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  void _nextPage() {
+  void _nextPage() async {
     if (_currentPage < _pages.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
+    } else {
+      // final user = await ref.read(authStateProvider.future);
+      // final userId =
+      //     user?.uid ?? 'default_user_id';
+      final userId = "test_user_123";
+      final success =
+          await ref.read(submissionProvider.notifier).validateAndSubmit(userId);
+
+      if (success) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const SubmittingScreen()),
+        );
+      } else {
+        final error = ref.read(submissionProvider).error;
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error ?? 'Please complete all sections')),
+        );
+      }
     }
   }
 

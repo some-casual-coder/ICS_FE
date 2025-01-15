@@ -3,6 +3,7 @@ import 'package:fliccsy/screens/onboarding/onboarding_screen.dart';
 import 'package:fliccsy/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class PreferencesSelector extends ConsumerWidget {
   const PreferencesSelector({super.key});
@@ -13,7 +14,7 @@ class PreferencesSelector extends ConsumerWidget {
 
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -30,12 +31,12 @@ class PreferencesSelector extends ConsumerWidget {
               descriptions: const {
                 'Short': '< 90 min',
                 'Medium': '90-120 min',
-                'Long': '> 150 min',
+                'Long': '> 120 min',
               },
               showDivider: true,
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // Era Section
             PreferenceSection(
@@ -50,7 +51,7 @@ class PreferencesSelector extends ConsumerWidget {
               showDivider: true,
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // Locality Section
             PreferenceSection(
@@ -101,10 +102,10 @@ class PreferenceSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 18,
+          style: GoogleFonts.fredoka(
+            fontSize: 22,
+            color: AppColors.primary,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Fredoka',
           ),
         ),
         const SizedBox(height: 12),
@@ -175,7 +176,9 @@ class PreferenceButton extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: GoogleFonts.roboto(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
           color: isSelected ? Colors.white : Colors.grey.shade700,
         ),
       ),
