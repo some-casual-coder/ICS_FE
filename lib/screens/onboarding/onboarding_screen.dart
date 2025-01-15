@@ -1,4 +1,5 @@
 import 'package:fliccsy/providers/auth_provider.dart';
+import 'package:fliccsy/providers/onboarding_provider.dart';
 import 'package:fliccsy/providers/submission_provider.dart';
 import 'package:fliccsy/screens/onboarding/submitting_screen.dart';
 import 'package:fliccsy/theme/app_colors.dart';
@@ -61,6 +62,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
       if (success) {
         if (!mounted) return;
+        await ref
+            .read(onboardingCompletedProvider.notifier)
+            .completeOnboarding();
+
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const SubmittingScreen()),
         );

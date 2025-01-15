@@ -44,6 +44,8 @@ dependencies:
   google_fonts: ^6.2.1
   http: ^1.2.2
   confetti: ^0.8.0
+  curved_navigation_bar: ^1.0.6
+  shared_preferences: ^2.3.5
 
 dev_dependencies:
   flutter_test:
@@ -80,6 +82,7 @@ flutter:
     - assets/images/google_logo.png
     - assets/images/login_image.png
     - assets/images/get_started.png
+    - assets/images/home_screen_image.png
     # - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
