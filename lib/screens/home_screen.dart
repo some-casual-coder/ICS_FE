@@ -31,7 +31,7 @@ class HomeScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Welcome ${user?.email ?? ""}!',
+                'Welcome ${user?.displayName ?? ""}!',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 32),
