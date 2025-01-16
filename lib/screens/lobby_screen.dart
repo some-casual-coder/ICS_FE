@@ -1,15 +1,24 @@
 // lib/screens/lobby_screen.dart
 import 'package:fliccsy/providers/auth_provider.dart';
+import 'package:fliccsy/screens/create_room_screen.dart';
 import 'package:fliccsy/services/websockets/location_service.dart';
 import 'package:fliccsy/services/websockets/websocket_service.dart';
+import 'package:fliccsy/theme/app_colors.dart';
+import 'package:fliccsy/widgets/room_list_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 final webSocketServiceProvider = Provider((ref) => WebSocketService());
 final locationServiceProvider = Provider((ref) => LocationService());
 
 class LobbyScreen extends ConsumerStatefulWidget {
-  const LobbyScreen({super.key});
+  final VoidCallback onBackPressed;
+
+  const LobbyScreen({
+    super.key,
+    required this.onBackPressed,
+  });
 
   @override
   ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
@@ -24,17 +33,36 @@ final webSocketConnectionProvider = FutureProvider.autoDispose((ref) async {
   return wsService;
 });
 
-class _LobbyScreenState extends ConsumerState<LobbyScreen> {
+class _LobbyScreenState extends ConsumerState<LobbyScreen>
+    with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> users = [];
   List<Map<String, dynamic>> nearbyRooms = [];
   bool isHost = false;
   String? roomCode;
   bool isLoading = false;
+  late AnimationController _rippleController;
+  late Animation<double> _rippleAnimation;
+  TextEditingController _codeController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _setupWebSocket();
+    _rippleController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    )..repeat();
+
+    _rippleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _rippleController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _rippleController.dispose();
+    _codeController.dispose();
+    super.dispose();
   }
 
   void _setupWebSocket() {
@@ -58,6 +86,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             nearbyRooms = List<Map<String, dynamic>>.from(data['rooms']);
             isLoading = false;
           });
+          _showFoundRooms();
           break;
 
         case 'user_joined':
@@ -86,10 +115,78 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     });
   }
 
+  void _showJoinDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Align(
+          alignment: Alignment.topCenter,
+          child: Text(
+            'Join Room',
+            style: GoogleFonts.fredoka(
+              fontSize: 24,
+              color: AppColors.darkAccent,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        content: TextField(
+          cursorColor: AppColors.primary,
+          controller: _codeController,
+          decoration: InputDecoration(
+            hintText: 'Enter room code',
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: AppColors.primary,
+                width: 1,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: AppColors.primary,
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.roboto(fontSize: 17)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final code = _codeController.text.trim();
+              if (code.isNotEmpty) {
+                ref.read(webSocketServiceProvider).joinRoom(code);
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Text(
+              'Join',
+              style:
+                  GoogleFonts.roboto(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _scanNearbyRooms() async {
     setState(() {
       isLoading = true;
-      nearbyRooms = []; // Clear previous results
+      nearbyRooms = [];
     });
 
     try {
@@ -113,19 +210,68 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
   }
 
-  void _showLocationError() {
-    showDialog(
+  Future<void> _showLocationError() {
+    return showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Location Access Required'),
-        content:
-            Text('Please enable location services to scan for nearby rooms.'),
+        title: const Text('Location Access Required'),
+        content: const Text(
+            'Please enable location services to scan for nearby rooms.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+
+              final locationService = ref.read(locationServiceProvider);
+              final permissionGranted =
+                  await locationService.requestPermission();
+
+              if (mounted && permissionGranted) {
+                _scanNearbyRooms();
+              }
+            },
+            child: const Text('Enable'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showFoundRooms() {
+    if (nearbyRooms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No watch parties found nearby',
+            style: GoogleFonts.roboto(color: Colors.black, fontSize: 16),
+          ),
+          backgroundColor: AppColors.secondary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          margin: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).size.height - 230,
+          ),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => RoomListDialog(
+        rooms: nearbyRooms,
+        onJoinRoom: (roomCode) async {
+          ref.read(webSocketServiceProvider).joinRoom(roomCode);
+        },
       ),
     );
   }
@@ -134,21 +280,75 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Join Request'),
-        content: Text('$userName wants to join the room'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Join Request',
+              style: GoogleFonts.fredoka(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: 100,
+              height: 3,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '$userName wants to join the room',
+          style: GoogleFonts.roboto(
+            fontSize: 18,
+            color: AppColors.darkAccent,
+          ),
+        ),
         actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text(
+              'Deny',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               ref.read(webSocketServiceProvider).approveUser(userId);
             },
-            child: Text('Approve'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Deny'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.green,
+            ),
+            child: const Text(
+              'Approve',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _navigateToCreateRoom() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CreateRoomScreen(
+          onBackPressed: () {},
+        ),
       ),
     );
   }
@@ -156,117 +356,124 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   @override
   Widget build(BuildContext context) {
     final wsConnection = ref.watch(webSocketConnectionProvider);
-    return wsConnection.when(
-      data: (wsService) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Lobby'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context),
+    return PopScope(
+      onPopInvokedWithResult: (didPop, dynamic) async {
+        widget.onBackPressed();
+        Future<bool>.value(true);
+      },
+      child: wsConnection.when(
+        data: (wsService) => Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            title: Text(
+              'Lobby',
+              style: GoogleFonts.fredoka(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              if (roomCode == null)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton(
-                            onPressed: () =>
-                                ref.read(webSocketServiceProvider).createRoom(),
-                            child: Text('Create Room'),
-                          ),
-                          ElevatedButton(
-                            onPressed: _scanNearbyRooms,
-                            child: Text('Scan Nearby Rooms'),
-                          ),
-                        ],
-                      ),
-                      if (isLoading)
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      if (nearbyRooms.isNotEmpty)
-                        ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: nearbyRooms.length,
-                          itemBuilder: (context, index) {
-                            final room = nearbyRooms[index];
-                            return ListTile(
-                              title: Text('Room ${room['code']}'),
-                              subtitle: Text(
-                                  '${room['user_count']} users | ${room['distance'].toStringAsFixed(1)} km away'),
-                              onTap: () => ref
-                                  .read(webSocketServiceProvider)
-                                  .joinRoom(room['code']),
-                            );
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-              if (roomCode != null)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text('Room Code: $roomCode'),
-                ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Active Users',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: users.isEmpty
-                            ? const Center(
-                                child: Text('No users in the room'),
-                              )
-                            : ListView.builder(
-                                itemCount: users.length,
-                                itemBuilder: (context, index) {
-                                  final user = users[index];
-                                  return ListTile(
-                                    title: Text(user['name']),
-                                    trailing: isHost && !user['is_host']
-                                        ? IconButton(
-                                            icon: Icon(Icons.remove_circle),
-                                            onPressed: () => ref
-                                                .read(webSocketServiceProvider)
-                                                .removeUser(user['id']),
-                                          )
-                                        : null,
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _scanNearbyRooms,
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 250,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              AnimatedBuilder(
+                                animation: _rippleAnimation,
+                                builder: (context, child) {
+                                  return Container(
+                                    width: 180 * _rippleAnimation.value,
+                                    height: 180 * _rippleAnimation.value,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.primary.withOpacity(0.2),
+                                    ),
                                   );
                                 },
                               ),
-                      ),
-                    ],
+                              Container(
+                                width: 170,
+                                height: 170,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.primary.withOpacity(0.3),
+                                ),
+                              ),
+                              Image.asset(
+                                'assets/images/scan_nearby_room.png',
+                                width: 150,
+                                height: 150,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Scan for nearby rooms',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  OutlinedButton(
+                    onPressed: _showJoinDialog,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: BorderSide(color: Colors.grey.shade300),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: Text(
+                      'Join with code',
+                      style: GoogleFonts.roboto(
+                          fontSize: 20, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _navigateToCreateRoom,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: Text(
+                      'Create Room',
+                      style: GoogleFonts.roboto(
+                          fontSize: 20, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
-      loading: () => const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
-      error: (error, stack) => Scaffold(
-        body: Center(
-          child: Text('Error connecting: $error'),
-        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
       ),
     );
   }

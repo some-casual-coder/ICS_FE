@@ -68,16 +68,20 @@ class WebSocketService {
     _reconnectTimer = Timer(const Duration(seconds: 5), _attemptConnection);
   }
 
-  Future<void> createRoom() async {
+  Future<void> createRoom({String? roomName}) async {
     final position = await _locationService.getCurrentLocation();
     if (position != null) {
       _send({
         'action': 'create_room',
+        'room_name': roomName,
         'latitude': position.latitude,
         'longitude': position.longitude,
       });
     } else {
-      _send({'action': 'create_room'}); // Fallback without location
+      _send({
+        'action': 'create_room',
+        'room_name': roomName,
+      }); // Fallback without location
     }
   }
 
@@ -94,6 +98,13 @@ class WebSocketService {
     } else {
       _send({'action': 'scan_rooms'}); // Fallback without location
     }
+  }
+
+  Future<void> getRoomDetails(String roomCode) async {
+    _send({
+      'action': 'get_room_details',
+      'room_code': roomCode,
+    });
   }
 
   void joinRoom(String roomCode) {

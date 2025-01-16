@@ -1,5 +1,6 @@
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:fliccsy/providers/auth_provider.dart';
+import 'package:fliccsy/screens/lobby_screen.dart';
 import 'package:fliccsy/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,7 +56,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildHomeContent() {
-    // final user = ref.watch(authStateProvider).value;
+    final user = ref.watch(authStateProvider).value;
+    print(user?.photoURL);
 
     return Column(
       children: [
@@ -75,8 +77,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         color: AppColors.primary),
                   ),
                   Text(
-                    // user?.displayName ?? '',
-                    "John Doe",
+                    user?.displayName ?? 'John Doe',
                     style: GoogleFonts.roboto(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
@@ -86,7 +87,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               CircleAvatar(
                 radius: 30,
-                // backgroundImage: NetworkImage(user?.photoURL ?? ''),
+                backgroundImage: NetworkImage(user?.photoURL ?? ''),
                 backgroundColor: Colors.grey[300],
               ),
             ],
@@ -103,41 +104,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: _pulseAnimation.value,
-                      child: Container(
-                        width: 300,
-                        height: 300,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.primary,
-                        ),
-                        child: Center(
-                          child: Opacity(
-                            opacity: _pulseAnimation.value / 1.2,
-                            child: Image.asset(
-                              'assets/images/home_screen_image.png',
-                              width: 200,
-                              height: 200,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LobbyScreen(
+                          onBackPressed: () {
+                            Navigator.pop(context);
+                            _bottomNavigationKey.currentState?.setPage(0);
+                          },
                         ),
                       ),
                     );
                   },
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Click to start flicking!',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
+                  child: Column(
+                    children: [
+                      AnimatedBuilder(
+                        animation: _pulseAnimation,
+                        builder: (context, child) {
+                          return Transform.scale(
+                            scale: _pulseAnimation.value,
+                            child: Container(
+                              width: 300,
+                              height: 300,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.primary,
+                              ),
+                              child: Center(
+                                child: Opacity(
+                                  opacity: _pulseAnimation.value / 1.2,
+                                  child: Image.asset(
+                                    'assets/images/home_screen_image.png',
+                                    width: 200,
+                                    height: 200,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Click to start flicking!',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                )
               ],
             ),
           ),
@@ -149,6 +169,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: _buildScreen(_selectedIndex),
       ),

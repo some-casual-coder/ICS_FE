@@ -53,10 +53,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      // final user = await ref.read(authStateProvider.future);
-      // final userId =
-      //     user?.uid ?? 'default_user_id';
-      final userId = "test_user_123";
+      final user = await ref.read(authStateProvider.future);
+      final userId = user?.uid ?? 'default_user_id';
+      // final userId = "test_user_123";
       final success =
           await ref.read(submissionProvider.notifier).validateAndSubmit(userId);
 

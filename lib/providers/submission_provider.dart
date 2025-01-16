@@ -79,91 +79,91 @@ class SubmissionNotifier extends StateNotifier<SubmissionState> {
     }
   }
 
-  // Future<void> _submitGenres(String userId, List<Genre> genres) async {
-  //   final url = Platform.isAndroid
-  //       ? 'http://10.0.2.2:8000/genres/preferences'
-  //       : 'http://localhost:8000/genres/preferences';
-
-  //   final response = await http.post(
-  //     Uri.parse(url),
-  //     headers: {'Content-Type': 'application/json'},
-  //     body: json.encode({
-  //       'user_id': userId,
-  //       'selected_genres': genres.map((g) => {'id': g.id}).toList(),
-  //     }),
-  //   );
-
-  //   if (response.statusCode != 200) throw Exception('Failed to submit genres');
-  // }
-
-  // Future<void> _submitMovies(String userId, List<Movie> movies) async {
-  //   final url = Platform.isAndroid
-  //       ? 'http://10.0.2.2:8000/movies/preferences'
-  //       : 'http://localhost:8000/movies/preferences';
-
-  //   final response = await http.post(
-  //     Uri.parse(url),
-  //     headers: {'Content-Type': 'application/json'},
-  //     body: json.encode(
-  //       movies
-  //           .map((movie) => {
-  //                 'user_id': userId,
-  //                 'movie_id': movie.id,
-  //                 'rating': 1,
-  //               })
-  //           .toList(),
-  //     ),
-  //   );
-
-  //   if (response.statusCode != 200) throw Exception('Failed to submit movies');
-  // }
-
-  // Future<void> _submitPreferences(String userId, PreferencesState prefs) async {
-  //   final url = Platform.isAndroid
-  //       ? 'http://10.0.2.2:8000/user/settings'
-  //       : 'http://localhost:8000/user/settings';
-
-  //   final response = await http.post(
-  //     Uri.parse(url),
-  //     headers: {'Content-Type': 'application/json'},
-  //     body: json.encode({
-  //       'user_id': userId,
-  //       ...prefs.toJson(),
-  //     }),
-  //   );
-
-  //   if (response.statusCode != 200)
-  //     throw Exception('Failed to submit preferences');
-  // }
-
   Future<void> _submitGenres(String userId, List<Genre> genres) async {
-    // Simulate API delay
-    await Future.delayed(const Duration(seconds: 1));
-    // In real implementation, remove this log
-    print('Submitting genres: ${json.encode({
-          'user_id': userId,
-          'selected_genres': genres.map((g) => {'id': g.id}).toList(),
-        })}');
+    final url = Platform.isAndroid
+        ? 'http://10.0.2.2:8000/genres/preferences'
+        : 'http://localhost:8000/genres/preferences';
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'user_id': userId,
+        'selected_genres': genres.map((g) => {'id': g.id}).toList(),
+      }),
+    );
+
+    if (response.statusCode != 200) throw Exception('Failed to submit genres');
   }
 
   Future<void> _submitMovies(String userId, List<Movie> movies) async {
-    await Future.delayed(const Duration(seconds: 1));
-    print('Submitting movies: ${json.encode(
-      movies
-          .map((movie) => {
-                'user_id': userId,
-                'movie_id': movie.id,
-                'rating': 1,
-              })
-          .toList(),
-    )}');
+    final url = Platform.isAndroid
+        ? 'http://10.0.2.2:8000/movies/preferences'
+        : 'http://localhost:8000/movies/preferences';
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(
+        movies
+            .map((movie) => {
+                  'user_id': userId,
+                  'movie_id': movie.id,
+                  'rating': 1,
+                })
+            .toList(),
+      ),
+    );
+
+    if (response.statusCode != 200) throw Exception('Failed to submit movies');
   }
 
   Future<void> _submitPreferences(String userId, PreferencesState prefs) async {
-    await Future.delayed(const Duration(seconds: 1));
-    print('Submitting preferences: ${json.encode({
-          'user_id': userId,
-          ...prefs.toJson(),
-        })}');
+    final url = Platform.isAndroid
+        ? 'http://10.0.2.2:8000/user/settings'
+        : 'http://localhost:8000/user/settings';
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'user_id': userId,
+        ...prefs.toJson(),
+      }),
+    );
+
+    if (response.statusCode != 200)
+      throw Exception('Failed to submit preferences');
   }
+
+  // Future<void> _submitGenres(String userId, List<Genre> genres) async {
+  //   // Simulate API delay
+  //   await Future.delayed(const Duration(seconds: 1));
+  //   // In real implementation, remove this log
+  //   print('Submitting genres: ${json.encode({
+  //         'user_id': userId,
+  //         'selected_genres': genres.map((g) => {'id': g.id}).toList(),
+  //       })}');
+  // }
+
+  // Future<void> _submitMovies(String userId, List<Movie> movies) async {
+  //   await Future.delayed(const Duration(seconds: 1));
+  //   print('Submitting movies: ${json.encode(
+  //     movies
+  //         .map((movie) => {
+  //               'user_id': userId,
+  //               'movie_id': movie.id,
+  //               'rating': 1,
+  //             })
+  //         .toList(),
+  //   )}');
+  // }
+
+  // Future<void> _submitPreferences(String userId, PreferencesState prefs) async {
+  //   await Future.delayed(const Duration(seconds: 1));
+  //   print('Submitting preferences: ${json.encode({
+  //         'user_id': userId,
+  //         ...prefs.toJson(),
+  //       })}');
+  // }
 }

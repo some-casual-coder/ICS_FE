@@ -1,4 +1,6 @@
 // movie_selector.dart
+import 'dart:io';
+
 import 'package:fliccsy/providers/genre_provider.dart';
 import 'package:fliccsy/providers/movie_provider.dart';
 import 'package:fliccsy/theme/app_colors.dart';
@@ -30,120 +32,63 @@ class _MovieSelectorState extends ConsumerState<MovieSelector> {
   List<Movie> _searchResults = [];
   bool _noSearchResults = false;
 
-  // Future<void> _fetchMovies([bool isSearch = false]) async {
-  //   final selectedGenres = ref.read(genreProvider);
-  //   final genreIds =
-  //       selectedGenres.map((genre) => genre.id).join('&genre_ids=');
-
-  //   try {
-  //     final url = isSearch
-  //         ? 'http://localhost:8000/movies/search?query=${Uri.encodeComponent(_searchQuery!)}&page=$_currentPage'
-  //         : 'http://localhost:8000/movies/discover?$genreIds&page=$_currentPage';
-
-  //     final response = await http.get(
-  //       Uri.parse(url),
-  //       headers: {'Content-Type': 'application/json'},
-  //     );
-
-  //     if (response.statusCode == 200) {
-  //       final data = json.decode(response.body);
-  //       setState(() {
-  //         if (isSearch) {
-  //           _searchResults = (data['result'] as List)
-  //               .map((movie) => Movie.fromJson(movie))
-  //               .toList();
-  //           _noSearchResults = _searchResults.isEmpty;
-  //         } else {
-  //           _movies = (data['result'] as List)
-  //               .map((movie) => Movie.fromJson(movie))
-  //               .toList();
-  //         }
-  //         _isLoading = false;
-  //       });
-  //     }
-  //   } catch (e) {
-  //     setState(() => _isLoading = false);
-  //   }
-  // }
-
   Future<void> _fetchMovies([bool isSearch = false]) async {
     final selectedGenres = ref.read(genreProvider);
     final genreIds =
         selectedGenres.map((genre) => genre.id).join('&genre_ids=');
+    setState(() {
+      _isLoading = true;
+      _movies.clear();
+      _searchResults.clear();
+    });
 
     try {
-      // Simulate API call for now
-      await Future.delayed(Duration(seconds: 1));
+      final url_prefix =
+          Platform.isAndroid ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+      final url = isSearch
+          ? '${url_prefix}/movies/search?query=${Uri.encodeComponent(_searchQuery!)}&page=$_currentPage'
+          : '${url_prefix}/movies/discover?genre_ids=$genreIds&page=$_currentPage';
 
-      final dummyResponse = isSearch
-          ? {
-              "page": 1,
-              "result": _searchQuery == "noresults"
-                  ? []
-                  : [
-                      {
-                        "id": 3,
-                        "backdrop_path":
-                            "https://m.media-amazon.com/images/I/A1PaCX4oXjL.jpg",
-                        "title": "Search Result: $_searchQuery",
-                        "release_date": "2024-01-15"
-                      },
-                      {
-                        "id": 4,
-                        "backdrop_path":
-                            "https://m.media-amazon.com/images/I/A1PaCX4oXjL.jpg",
-                        "title": "Another $_searchQuery Movie",
-                        "release_date": "2023-12-25"
-                      },
-                    ]
-            }
-          : {
-              "page": 1,
-              "result": [
-                {
-                  "id": 1,
-                  "backdrop_path":
-                      "https://m.media-amazon.com/images/I/A1PaCX4oXjL.jpg",
-                  "title": "Movie 1",
-                  "release_date": "2024-01-15"
-                },
-                {
-                  "id": 2,
-                  "backdrop_path":
-                      "https://m.media-amazon.com/images/I/A1PaCX4oXjL.jpg",
-                  "title": "Movie 2",
-                  "release_date": "2023-12-20"
-                },
-                {
-                  "id": 5,
-                  "backdrop_path":
-                      "https://m.media-amazon.com/images/I/A1PaCX4oXjL.jpg",
-                  "title": "Movie 3",
-                  "release_date": "2023-11-15"
-                },
-                {
-                  "id": 6,
-                  "backdrop_path":
-                      "https://m.media-amazon.com/images/I/A1PaCX4oXjL.jpg",
-                  "title": "Movie 4",
-                  "release_date": "2023-10-10"
-                },
-              ]
-            };
+      print(url);
 
-      setState(() {
-        if (isSearch) {
-          _searchResults = (dummyResponse['result'] as List)
-              .map((movie) => Movie.fromJson(movie))
-              .toList();
-          _noSearchResults = _searchResults.isEmpty;
-        } else {
-          _movies = (dummyResponse['result'] as List)
-              .map((movie) => Movie.fromJson(movie))
-              .toList();
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (!mounted) return;
+
+        try {
+          if (isSearch) {
+            final newSearchResults = (data['results'] as List).map((movie) {
+              return Movie.fromJson(movie);
+            }).toList();
+
+            setState(() {
+              _searchResults = newSearchResults;
+              _noSearchResults = _searchResults.isEmpty;
+              _isLoading = false;
+              print(
+                  "Search state updated - Results count: ${_searchResults.length}");
+            });
+          } else {
+            final newMovies = (data['results'] as List).map((movie) {
+              return Movie.fromJson(movie);
+            }).toList();
+
+            setState(() {
+              _movies = newMovies;
+              _isLoading = false;
+            });
+          }
+        } catch (e) {
+          print("Error processing movies: $e");
+          setState(() => _isLoading = false);
         }
-        _isLoading = false;
-      });
+      } else {
+        print("Bad response status: ${response.statusCode}");
+      }
     } catch (e) {
       setState(() => _isLoading = false);
     }
@@ -195,6 +140,7 @@ class _MovieSelectorState extends ConsumerState<MovieSelector> {
                             _searchResults.clear();
                             _noSearchResults = false;
                           });
+                          _fetchMovies(false);
                         }
                       },
                     ),
@@ -221,7 +167,7 @@ class _MovieSelectorState extends ConsumerState<MovieSelector> {
                 width: 40,
                 height: 40,
                 child: Stack(
-                  alignment: Alignment.center, // Ensures children are centered
+                  alignment: Alignment.center,
                   children: [
                     CircularProgressIndicator(
                       value: progress,
@@ -265,27 +211,46 @@ class _MovieSelectorState extends ConsumerState<MovieSelector> {
             ),
           ),
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.7,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    mainAxisExtent: 260, // Fixed height for each item
-                  ),
-                  itemCount: _searchResults.isNotEmpty
-                      ? _searchResults.length
-                      : _movies.length,
-                  itemBuilder: (context, index) {
-                    final movie = _searchResults.isNotEmpty
-                        ? _searchResults[index]
-                        : _movies[index];
-                    return _MovieCard(movie: movie);
-                  },
+          child: Builder(
+            builder: (context) {
+              if (_isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final isSearchActive =
+                  _searchQuery != null && _searchQuery!.isNotEmpty;
+              final displayList = isSearchActive ? _searchResults : _movies;
+
+              if (displayList.isEmpty) {
+                return Center(
+                  child: Text(isSearchActive
+                      ? 'No results found'
+                      : 'No movies available'),
+                );
+              }
+
+              return GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.7,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  mainAxisExtent: 260,
                 ),
+                itemCount: displayList.length,
+                itemBuilder: (context, index) {
+                  try {
+                    final movie = displayList[index];
+                    return _MovieCard(movie: movie);
+                  } catch (e) {
+                    print("Error building movie at index $index: $e");
+                    return const SizedBox.shrink();
+                  }
+                },
+              );
+            },
+          ),
         ),
       ],
     );
@@ -301,7 +266,7 @@ class _MovieCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isSelected =
         ref.watch(selectedMoviesProvider.notifier).isSelected(movie);
-    final year = DateTime.parse(movie.releaseDate).year;
+    final year = movie.year;
 
     return GestureDetector(
       onTap: () {
@@ -319,7 +284,8 @@ class _MovieCard extends ConsumerWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 image: DecorationImage(
-                  image: NetworkImage(movie.backdropPath),
+                  image: NetworkImage(
+                      'https://image.tmdb.org/t/p/original${movie.backdropPath}'),
                   fit: BoxFit.cover,
                 ),
                 border: isSelected
@@ -329,12 +295,18 @@ class _MovieCard extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            '${movie.title} ($year)',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+          Container(
+            height: 40, // Fixed height for title area
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '${movie.title} (${year?.toString() ?? 'N/A'})',
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],

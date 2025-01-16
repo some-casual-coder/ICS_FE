@@ -2,9 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class Movie {
   final int id;
-  final String backdropPath;
-  final String title;
-  final String releaseDate;
+  final String? backdropPath;
+  final String? title;
+  final String? releaseDate;
 
   Movie({
     required this.id,
@@ -14,12 +14,27 @@ class Movie {
   });
 
   factory Movie.fromJson(Map<String, dynamic> json) {
-    return Movie(
-      id: json['id'],
-      backdropPath: json['backdrop_path'],
-      title: json['title'],
-      releaseDate: json['release_date'],
-    );
+    try {
+      return Movie(
+        id: json['id'],
+        backdropPath: json['backdrop_path'],
+        title: json['title'],
+        releaseDate: json['release_date'],
+      );
+    } catch (e) {
+      print('Error parsing movie: ${json['title']}, Error: $e');
+      rethrow;
+    }
+  }
+
+  int? get year {
+    if (releaseDate == null) return null;
+    try {
+      return DateTime.parse(releaseDate!).year;
+    } catch (e) {
+      print('Error parsing date: $releaseDate');
+      return null;
+    }
   }
 }
 
