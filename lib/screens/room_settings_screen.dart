@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fliccsy/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 
 class RoomSettingsPage extends StatefulWidget {
@@ -19,20 +21,68 @@ class RoomSettingsPage extends StatefulWidget {
 }
 
 class _RoomSettingsPageState extends State<RoomSettingsPage> {
+  bool isLoading = true;
   String runtimePreference = 'medium';
   List<String> selectedLanguages = ['en'];
   double minRating = 7.0;
   RangeValues yearRange = const RangeValues(1970, 2024);
   final List<String> availableLanguages = [
     'en',
+    'sw',
     'es',
     'fr',
     'de',
-    'it',
-    'ja',
-    'ko',
-    'zh'
+    'yo',
+    'ig',
+    'zu',
+    'xh',
+    'af',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPreferences();
+  }
+
+  Future<void> _fetchPreferences() async {
+    final url = Platform.isAndroid
+        ? 'http://10.0.2.2:8000/rooms/${widget.roomId}/preferences'
+        : 'http://localhost:8000/rooms/${widget.roomId}/preferences';
+
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['preferences'] != null) {
+          setState(() {
+            runtimePreference =
+                data['preferences']['runtime_preference'] ?? 'medium';
+            selectedLanguages = List<String>.from(
+                data['preferences']['language_preference'] ?? ['en']);
+            minRating = (data['preferences']['min_rating'] ?? 7.0).toDouble();
+            final yearRangeData =
+                data['preferences']['release_year_range'] ?? [1970, 2024];
+            yearRange = RangeValues(
+              yearRangeData[0].toDouble(),
+              yearRangeData[1].toDouble(),
+            );
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading preferences: ${e.toString()}')),
+        );
+      }
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   Future<void> _updatePreferences() async {
     final url = Platform.isAndroid
@@ -74,13 +124,35 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text('${widget.roomName} Settings'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('${widget.roomName} Settings'),
+        title: Text(
+          'Settings',
+          style: GoogleFonts.fredoka(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -100,6 +172,24 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
                 ButtonSegment(value: 'long', label: Text('Long')),
               ],
               selected: {runtimePreference},
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith<Color>(
+                  (Set<WidgetState> states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppColors.primary;
+                    }
+                    return AppColors.primaryAccent.withOpacity(0.1);
+                  },
+                ),
+                foregroundColor: WidgetStateProperty.resolveWith<Color>(
+                  (Set<WidgetState> states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppColors.primaryAccent;
+                    }
+                    return AppColors.primary;
+                  },
+                ),
+              ),
               onSelectionChanged: (Set<String> selection) {
                 setState(() {
                   runtimePreference = selection.first;
@@ -120,6 +210,8 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
                 return FilterChip(
                   label: Text(lang.toUpperCase()),
                   selected: selectedLanguages.contains(lang),
+                  selectedColor: AppColors.primaryAccent,
+                  checkmarkColor: AppColors.primary,
                   onSelected: (selected) {
                     setState(() {
                       if (selected) {
@@ -145,6 +237,8 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
               min: 0,
               max: 10,
               divisions: 20,
+              activeColor: AppColors.primary,
+              inactiveColor: AppColors.primaryAccent.withOpacity(0.3),
               label: minRating.toStringAsFixed(1),
               onChanged: (value) {
                 setState(() {
@@ -165,6 +259,8 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
               min: 1900,
               max: 2024,
               divisions: 124,
+              activeColor: AppColors.primary,
+              inactiveColor: AppColors.primaryAccent.withOpacity(0.3),
               labels: RangeLabels(
                 yearRange.start.round().toString(),
                 yearRange.end.round().toString(),
@@ -176,8 +272,6 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
               },
             ),
             const SizedBox(height: 32),
-
-            // Save Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

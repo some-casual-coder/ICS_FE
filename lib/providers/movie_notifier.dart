@@ -1,64 +1,169 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:fliccsy/models/movie.dart';
 import 'package:fliccsy/models/movie_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-final movieStateProvider =
-    StateNotifierProvider<MovieNotifier, MovieState>((ref) {
-  return MovieNotifier();
-});
+import 'package:http/http.dart' as http;
 
 class MovieNotifier extends StateNotifier<MovieState> {
-  MovieNotifier() : super(MovieState()) {
+  final String roomId;
+  final String userId;
+  int currentPage = 1;
+
+  MovieNotifier({required this.roomId, required this.userId})
+      : super(MovieState()) {
     loadInitialMovies();
   }
 
-  void loadInitialMovies() {
-    final movies = [
-      const Movie(
-        id: '1',
-        title: 'Inception',
-        imageUrl:
-            'https://m.media-amazon.com/images/I/81dae9nZFBS._AC_SL1500_.jpg',
-        description:
-            'A thief who steals corporate secrets through dream-sharing technology.',
-        releaseDate: '2010',
-        rating: 8.8,
-      ),
-      const Movie(
-        id: '2',
-        title: 'Inception',
-        imageUrl:
-            'https://www.tallengestore.com/cdn/shop/products/Joker_-_Put_On_A_Happy_Face_-_Joaquin_Phoenix_-_Hollywood_English_Movie_Poster_3_0e557717-f9ae-4d45-82c3-27e08c2a9eeb.jpg?v=1579504984',
-        description:
-            'A thief who steals corporate secrets through dream-sharing technology.',
-        releaseDate: '2010',
-        rating: 8.8,
-      ),
-      const Movie(
-        id: '3',
-        title: 'Inception',
-        imageUrl:
-            'https://m.media-amazon.com/images/I/71ZJ8am0mKL._AC_SL1340_.jpg',
-        description:
-            'A thief who steals corporate secrets through dream-sharing technology.',
-        releaseDate: '2010',
-        rating: 8.8,
-      ),
-      const Movie(
-        id: '4',
-        title: 'Inception',
-        imageUrl:
-            'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS71Tr4Fx-4ovgyP5w6XkBZbZBNv7hA_Zr0Yg&s',
-        description:
-            'A thief who steals corporate secrets through dream-sharing technology.',
-        releaseDate: '2010',
-        rating: 8.8,
-      ),
-      // Add more movies...
-    ];
+  Future<void> loadInitialMovies() async {
+    try {
+      state = state.copyWith(isLoading: true);
 
-    state = state.copyWith(movies: movies);
+      // 1. Fetch all preferences in parallel
+      final preferences = await Future.wait([
+        _fetchUserSettings(),
+        _fetchLikedMovies(),
+        _fetchUserGenres(),
+        _fetchRoomPreferences(),
+      ]);
+
+      // 2. Extract data from responses
+      final userSettings = preferences[0] as Map<String, dynamic>;
+      final likedMovies = preferences[1] as Map<String, dynamic>;
+      final userGenres = preferences[2] as Map<String, dynamic>;
+      final roomPrefs = preferences[3] as Map<String, dynamic>;
+
+      // 3. Build discovery query parameters
+      final queryParams = _buildQueryParams(
+        userSettings: userSettings,
+        likedMovies: likedMovies,
+        userGenres: userGenres,
+        roomPreferences: roomPrefs,
+      );
+
+      // 4. Fetch movies
+      final movies = await _fetchMovies(queryParams);
+
+      // 5. Transform API response to Movie objects
+      final transformedMovies = _transformMovieResponse(movies);
+
+      state = state.copyWith(
+        movies: transformedMovies,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        error: e.toString(),
+        isLoading: false,
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> _fetchUserSettings() async {
+    final url = Platform.isAndroid
+        ? 'http://10.0.2.2:8000/user/$userId/settings'
+        : 'http://localhost:8000/user/$userId/settings';
+
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode != 200)
+      throw Exception('Failed to fetch user settings');
+    return json.decode(response.body);
+  }
+
+  Future<Map<String, dynamic>> _fetchLikedMovies() async {
+    final url = Platform.isAndroid
+        ? 'http://10.0.2.2:8000/user/$userId/liked-movies'
+        : 'http://localhost:8000/user/$userId/liked-movies';
+
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode != 200)
+      throw Exception('Failed to fetch liked movies');
+    return json.decode(response.body);
+  }
+
+  Future<Map<String, dynamic>> _fetchUserGenres() async {
+    final url = Platform.isAndroid
+        ? 'http://10.0.2.2:8000/user/$userId/genres'
+        : 'http://localhost:8000/user/$userId/genres';
+
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode != 200)
+      throw Exception('Failed to fetch user genres');
+    return json.decode(response.body);
+  }
+
+  Future<Map<String, dynamic>> _fetchRoomPreferences() async {
+    final url = Platform.isAndroid
+        ? 'http://10.0.2.2:8000/rooms/$roomId/preferences'
+        : 'http://localhost:8000/rooms/$roomId/preferences';
+
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode != 200)
+      throw Exception('Failed to fetch room preferences');
+    return json.decode(response.body);
+  }
+
+  String _buildQueryParams({
+    required Map<String, dynamic> userSettings,
+    required Map<String, dynamic> likedMovies,
+    required Map<String, dynamic> userGenres,
+    required Map<String, dynamic> roomPreferences,
+  }) {
+    final prefs = roomPreferences['preferences'];
+    final watchedMovieIds = likedMovies['movies']?.keys.toList() ?? [];
+    final genreIds = userGenres['genres']?.map((g) => g['id'].toString()) ?? [];
+
+    final queryParameters = {
+      'runtime': prefs['runtime_preference'],
+      'languages': prefs['language_preference'].join(','),
+      'min_rating': prefs['min_rating'].toString(),
+      'start_year': prefs['release_year_range'][0].toString(),
+      'end_year': prefs['release_year_range'][1].toString(),
+      'exclude_watched': 'true',
+      'page': currentPage.toString(),
+      'per_page': '15',
+    };
+
+    final queryList = queryParameters.entries.map((entry) {
+      return '${Uri.encodeComponent(entry.key)}=${Uri.encodeComponent(entry.value)}';
+    }).toList();
+
+    for (final genreId in genreIds) {
+      queryList.add('genres=${Uri.encodeComponent(genreId)}');
+    }
+
+    for (final movieId in watchedMovieIds) {
+      queryList.add('watched_movies=${Uri.encodeComponent(movieId)}');
+    }
+
+    return queryList.join('&');
+  }
+
+  Future<Map<String, dynamic>> _fetchMovies(String queryParams) async {
+    final baseUrl =
+        Platform.isAndroid ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+
+    final url = '$baseUrl/discover/movies?$queryParams';
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode != 200) throw Exception('Failed to fetch movies');
+    return json.decode(response.body);
+  }
+
+  List<Movie> _transformMovieResponse(Map<String, dynamic> moviesData) {
+    return (moviesData['results'] as List)
+        .map((movie) => Movie(
+              id: movie['id'].toString(),
+              title: movie['title'],
+              imageUrl:
+                  'https://image.tmdb.org/t/p/original${movie['poster_path']}',
+              description: movie['keywords'] ?? '',
+              releaseDate: movie['release_date']?.substring(0, 4) ?? '',
+              rating: movie['vote_average']?.toDouble() ?? 0.0,
+            ))
+        .toList();
   }
 
   void startDragging(DragStartDetails details) {

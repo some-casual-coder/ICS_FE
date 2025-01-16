@@ -17,23 +17,27 @@ class MovieState {
   final int rightSwipes; // Interested
   final int leftSwipes; // Disliked
   final DateTime sessionStartTime;
+  final bool isLoading;
+  final String? error;
 
-  MovieState({
-    this.movies = const [],
-    this.interestedMovieIds = const [],
-    this.notInterestedIds = const [],
-    this.watchedMovieIds = const [],
-    this.likedMovieIds = const [],
-    this.notSureIds = const [],
-    this.isDragging = false,
-    this.position = Offset.zero,
-    this.angle = 0,
-    this.upSwipes = 0,
-    this.downSwipes = 0,
-    this.rightSwipes = 0,
-    this.leftSwipes = 0,
-    DateTime? sessionStartTime,
-  }) : sessionStartTime = sessionStartTime ?? DateTime.now();
+  MovieState(
+      {this.movies = const [],
+      this.interestedMovieIds = const [],
+      this.notInterestedIds = const [],
+      this.watchedMovieIds = const [],
+      this.likedMovieIds = const [],
+      this.notSureIds = const [],
+      this.isDragging = false,
+      this.position = Offset.zero,
+      this.angle = 0,
+      this.upSwipes = 0,
+      this.downSwipes = 0,
+      this.rightSwipes = 0,
+      this.leftSwipes = 0,
+      DateTime? sessionStartTime,
+      this.isLoading = false,
+      this.error})
+      : sessionStartTime = sessionStartTime ?? DateTime.now();
 
   MovieState copyWith({
     List<Movie>? movies,
@@ -50,6 +54,8 @@ class MovieState {
     int? leftSwipes,
     int? downSwipes,
     DateTime? sessionStartTime,
+    bool? isLoading,
+    String? error,
   }) {
     return MovieState(
       movies: movies ?? this.movies,
@@ -66,6 +72,8 @@ class MovieState {
       leftSwipes: leftSwipes ?? this.leftSwipes,
       downSwipes: downSwipes ?? this.downSwipes,
       sessionStartTime: sessionStartTime ?? this.sessionStartTime,
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
     );
   }
 }

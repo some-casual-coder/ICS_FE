@@ -57,12 +57,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildHomeContent() {
     final user = ref.watch(authStateProvider).value;
-    print(user?.photoURL);
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -86,7 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
               ),
               CircleAvatar(
-                radius: 30,
+                radius: 25,
                 backgroundImage: NetworkImage(user?.photoURL ?? ''),
                 backgroundColor: Colors.grey[300],
               ),

@@ -1,13 +1,21 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:fliccsy/models/movie_state.dart';
 import 'package:fliccsy/models/room_data.dart';
 import 'package:fliccsy/models/user_data.dart';
+import 'package:fliccsy/providers/auth_provider.dart';
+import 'package:fliccsy/providers/movie_notifier.dart';
 import 'package:fliccsy/screens/lobby_screen.dart';
 import 'package:fliccsy/screens/room_settings_screen.dart';
+import 'package:fliccsy/screens/swipe_screen.dart';
 import 'package:fliccsy/theme/app_colors.dart';
 import 'package:fliccsy/widgets/progress_tracker.dart';
 import 'package:fliccsy/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 
 class RoomDetailsScreen extends ConsumerStatefulWidget {
   final RoomData initialRoomData;
@@ -57,6 +65,8 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authStateProvider).value;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -217,6 +227,107 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
                   },
                 ),
               ],
+            ),
+          ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 70),
+            child: SizedBox(
+              width: 350,
+              child: ElevatedButton(
+                onPressed: () async {
+                  if (user?.uid != null) {
+                    try {
+                      // Check if room preferences exist
+                      final url = Platform.isAndroid
+                          ? 'http://10.0.2.2:8000/rooms/${roomData.id}/preferences'
+                          : 'http://localhost:8000/rooms/${roomData.id}/preferences';
+
+                      final response = await http.get(Uri.parse(url));
+                      final data = json.decode(response.body);
+
+                      if (data['preferences'] == null) {
+                        if (context.mounted) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text('Room Settings Required'),
+                              content: Text(
+                                  'Please set up room preferences before starting to swipe.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context); // Close dialog
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => RoomSettingsPage(
+                                          roomId: roomData.id,
+                                          roomName: roomData.name,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Text('Go to Settings'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: Text('Cancel'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return;
+                      }
+
+                      // If preferences exist, proceed to swipe screen
+                      final movieProvider =
+                          StateNotifierProvider<MovieNotifier, MovieState>(
+                              (ref) {
+                        return MovieNotifier(
+                          roomId: roomData.id,
+                          userId: user!.uid,
+                        );
+                      });
+
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SwipeScreen(
+                              movieProvider: movieProvider,
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(
+                                  'Error checking room settings: ${e.toString()}')),
+                        );
+                      }
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text(
+                  'Start Swiping',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
             ),
           ),
         ],

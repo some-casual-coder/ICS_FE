@@ -1,15 +1,22 @@
+import 'package:fliccsy/models/movie_state.dart';
 import 'package:fliccsy/providers/movie_notifier.dart';
+import 'package:fliccsy/theme/app_colors.dart';
 import 'package:fliccsy/widgets/movie_card.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SwipeScreen extends ConsumerWidget {
-  const SwipeScreen({super.key});
+  final StateNotifierProvider<MovieNotifier, MovieState> movieProvider;
+  const SwipeScreen({
+    super.key,
+    required this.movieProvider,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(movieStateProvider);
-    final notifier = ref.read(movieStateProvider.notifier);
+    final state = ref.watch(movieProvider);
+    final notifier = ref.read(movieProvider.notifier);
 
     return PopScope(
       canPop: true,
@@ -45,6 +52,7 @@ class SwipeScreen extends ConsumerWidget {
         return;
       },
       child: Scaffold(
+        backgroundColor: Colors.white,
         appBar: AppBar(
           title: const Text('Movie Swipe'),
           leading: IconButton(
@@ -87,31 +95,64 @@ class SwipeScreen extends ConsumerWidget {
         body: SafeArea(
           child: Container(
             padding: const EdgeInsets.all(16),
-            child: state.movies.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'No more movies!',
-                          style: TextStyle(fontSize: 20),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => notifier.reset(),
-                          child: const Text('Start Over'),
-                        ),
-                      ],
+            child: state.isLoading
+                ? const Center(
+                    child: CupertinoActivityIndicator(
+                      radius: 20, // Makes it a bit larger
                     ),
                   )
-                : Stack(
-                    children: state.movies
-                        .map((movie) => MovieCard(
-                              movie: movie,
-                              isFront: state.movies.last == movie,
-                            ))
-                        .toList(),
-                  ),
+                : state.movies.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'No movies found!',
+                              style: TextStyle(fontSize: 20),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => notifier.reset(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    AppColors.primary, // Set background color
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                      30), // Rounded corners
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 8), // Optional padding
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize
+                                    .min, // Ensures the button's size adjusts to its content
+                                children: [
+                                  Icon(Icons.refresh,
+                                      color: Colors.white), // Retry icon
+                                  const SizedBox(
+                                      width: 8), // Space between icon and text
+                                  const Text(
+                                    'Retry',
+                                    style: TextStyle(
+                                        color: Colors
+                                            .white), // Ensure text color contrasts with the background
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Stack(
+                        children: state.movies
+                            .map((movie) => MovieCard(
+                                  movie: movie,
+                                  isFront: state.movies.last == movie,
+                                  movieProvider: movieProvider,
+                                ))
+                            .toList(),
+                      ),
           ),
         ),
       ),
