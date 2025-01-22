@@ -9,6 +9,7 @@ import 'package:fliccsy/screens/lobby_screen.dart';
 import 'package:fliccsy/screens/room_settings_screen.dart';
 import 'package:fliccsy/screens/swipe_screen.dart';
 import 'package:fliccsy/services/batch_interaction_service.dart';
+import 'package:fliccsy/services/recommendations_service.dart';
 import 'package:fliccsy/theme/app_colors.dart';
 import 'package:fliccsy/widgets/progress_tracker.dart';
 import 'package:fliccsy/widgets/status_badge.dart';
@@ -31,6 +32,13 @@ class RoomDetailsScreen extends ConsumerStatefulWidget {
 
 class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
   late RoomData roomData;
+  final _recommendationService = RecommendationService();
+  List<dynamic>? recommendations;
+  bool isLoadingRecommendations = false;
+
+  bool get allUsersCompleted {
+    return roomData.users.values.every((user) => user.status == 'completed');
+  }
 
   @override
   void initState() {
@@ -41,16 +49,26 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
   }
 
   void _setupWebSocketListener() {
+    print("Reading webscoket");
     ref.read(webSocketServiceProvider).messageStream.listen((data) {
-      if (data['action'] == 'room_details') {
+      if (data['action'] == 'room_details' ||
+          data['action'] == 'user_removed' ||
+          data['action'] == 'status_updated' ||
+          data['action'] == 'progress_updated') {
+        final oldStatus = roomData.users[data['user_id']]?.status;
+        final oldProgress = roomData.users[data['user_id']]?.swipeProgress;
         setState(() {
           roomData = RoomData.fromJson(data['room_data']);
-          print(roomData);
+          print('Room data updated: ${data['action']}');
         });
-      } else if (data['action'] == 'user_removed') {
-        setState(() {
-          roomData = RoomData.fromJson(data['room_data']);
-        });
+        // Log the changes
+        if (data['action'] == 'status_updated') {
+          print(
+              'RoomDetails: User ${data['user_id']} status changed from $oldStatus to ${data['status']}');
+        } else if (data['action'] == 'progress_updated') {
+          print(
+              'RoomDetails: User ${data['user_id']} progress updated from $oldProgress to ${data['progress']}/${data['total']}');
+        }
       }
     });
   }
@@ -230,6 +248,125 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
             ),
           ),
           const Spacer(),
+          // Add near other buttons in RoomDetailsScreen
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16), // Space between buttons
+            child: SizedBox(
+              width: 350,
+              child: ElevatedButton(
+                onPressed: () async {
+                  try {
+                    // Show loading
+                    if (context.mounted) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+
+                    // Get recommendations
+                    final recommendations =
+                        await _recommendationService.getRecommendationsForRoom(
+                      roomId: roomData.id,
+                      roomCode: roomData.code,
+                      userIds: roomData.users.keys.toList(),
+                    );
+
+                    // Hide loading
+                    if (context.mounted) {
+                      Navigator.pop(context);
+
+                      // Show recommendations in a dialog
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Group Recommendations'),
+                          content: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: recommendations
+                                  .map(
+                                    (movie) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 8.0),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            movie['title'],
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Genres: ${(movie['genres'] as List).join(", ")}',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Match Score: ${(movie['poster'] * 100).toStringAsFixed(1)}%',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          const Divider(),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    // Hide loading if showing
+                    if (context.mounted) {
+                      Navigator.pop(context);
+
+                      // Show error
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text('Error getting recommendations: $e')),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: const Text(
+                  'Get Recommendations',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(bottom: 70),
             child: SizedBox(

@@ -26,6 +26,7 @@ class WebSocketService {
       wsUrl = 'ws://10.0.2.2:8000/ws/$_userName';
     } else if (Platform.isIOS) {
       wsUrl = 'ws://localhost:8000/ws/$_userName';
+      print(wsUrl);
     } else {
       wsUrl = 'ws://localhost:8000/ws/$_userName';
     }
@@ -142,12 +143,14 @@ class WebSocketService {
   }
 
   void updateProgress(int currentCount, int totalCount) {
-    if (!_isConnected) return;
+    print("Attempting progress send");
+    // if (!_isConnected) return;
     _send({
       'action': 'update_progress',
       'current_count': currentCount,
       'total_count': totalCount,
     });
+    print("Done progress send");
   }
 
   void dispose() {

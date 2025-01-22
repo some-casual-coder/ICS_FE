@@ -29,7 +29,9 @@ class _SwipeScreenState extends ConsumerState<SwipeScreen> {
   @override
   void initState() {
     super.initState();
+    print('SwipeScreen: Initializing with 15 total movies');
     ref.read(webSocketServiceProvider).updateStatus('swiping');
+    print('SwipeScreen: Status updated to swiping');
   }
 
   void _updateSwipeProgress(MovieState state) {
@@ -38,6 +40,7 @@ class _SwipeScreenState extends ConsumerState<SwipeScreen> {
         state.rightSwipes +
         state.leftSwipes;
 
+    print('SwipeScreen: Updating progress - $swipedCount/15');
     ref
         .read(webSocketServiceProvider)
         .updateProgress(swipedCount, state.movies.length);
@@ -327,9 +330,12 @@ class _SwipeScreenState extends ConsumerState<SwipeScreen> {
 
   @override
   void dispose() {
-    // Reset status when leaving screen without completing
-    if (ref.read(widget.movieProvider).movies.isNotEmpty) {
-      ref.read(webSocketServiceProvider).updateStatus('joined');
+    final movieState = ref.read(widget.movieProvider);
+    final webSocketService = ref.read(webSocketServiceProvider);
+
+    // Only update status if we still have movies and the service exists
+    if (movieState.movies.isNotEmpty) {
+      webSocketService.updateStatus('joined');
     }
     super.dispose();
   }
