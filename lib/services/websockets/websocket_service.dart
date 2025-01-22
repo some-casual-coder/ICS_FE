@@ -133,6 +133,23 @@ class WebSocketService {
     _channel?.sink.add(jsonEncode(data));
   }
 
+  void updateStatus(String status) {
+    if (!_isConnected) return;
+    _send({
+      'action': 'update_status',
+      'status': status,
+    });
+  }
+
+  void updateProgress(int currentCount, int totalCount) {
+    if (!_isConnected) return;
+    _send({
+      'action': 'update_progress',
+      'current_count': currentCount,
+      'total_count': totalCount,
+    });
+  }
+
   void dispose() {
     _reconnectTimer?.cancel();
     _channel?.sink.close();

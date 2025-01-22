@@ -1,27 +1,128 @@
 import 'package:fliccsy/models/movie_state.dart';
+import 'package:fliccsy/providers/auth_provider.dart';
 import 'package:fliccsy/providers/movie_notifier.dart';
+import 'package:fliccsy/services/batch_interaction_service.dart';
+import 'package:fliccsy/services/websockets/websocket_service.dart';
 import 'package:fliccsy/theme/app_colors.dart';
 import 'package:fliccsy/widgets/movie_card.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class SwipeScreen extends ConsumerWidget {
+class SwipeScreen extends ConsumerStatefulWidget {
   final StateNotifierProvider<MovieNotifier, MovieState> movieProvider;
+
   const SwipeScreen({
     super.key,
     required this.movieProvider,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(movieProvider);
-    final notifier = ref.read(movieProvider.notifier);
+  ConsumerState<SwipeScreen> createState() => _SwipeScreenState();
+}
+
+class _SwipeScreenState extends ConsumerState<SwipeScreen> {
+  final _interactionService = InteractionService();
+  final webSocketServiceProvider = Provider((ref) => WebSocketService());
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(webSocketServiceProvider).updateStatus('swiping');
+  }
+
+  void _updateSwipeProgress(MovieState state) {
+    final swipedCount = state.upSwipes +
+        state.downSwipes +
+        state.rightSwipes +
+        state.leftSwipes;
+
+    ref
+        .read(webSocketServiceProvider)
+        .updateProgress(swipedCount, state.movies.length);
+  }
+
+  Future<bool> _handleSwipingComplete(String userId) async {
+    ref.read(webSocketServiceProvider).updateStatus('completed');
+    // Record batch swipes
+    return await _interactionService.recordBatchSwipesFromState(
+      userId: userId,
+      state: ref.read(widget.movieProvider),
+    );
+  }
+
+  void _showSwipeNotification(BuildContext context, SwipeStatus status) {
+    String message;
+    Color backgroundColor;
+    IconData icon;
+
+    switch (status) {
+      case SwipeStatus.interested:
+        message = "Interested";
+        backgroundColor = Colors.green;
+        icon = Icons.thumb_up;
+        break;
+      case SwipeStatus.notInterested:
+        message = "Not Interested";
+        backgroundColor = Colors.red;
+        icon = Icons.thumb_down;
+        break;
+      case SwipeStatus.watchedAndLiked:
+        message = "Watched & Liked";
+        backgroundColor = Colors.blue;
+        icon = Icons.favorite;
+        break;
+      case SwipeStatus.notSure:
+        message = "Not sure";
+        backgroundColor = Colors.orange;
+        icon = Icons.watch_later;
+        break;
+      default:
+        return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        backgroundColor: backgroundColor,
+        duration: const Duration(milliseconds: 500),
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white),
+            const SizedBox(width: 12),
+            Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(widget.movieProvider);
+    final user = ref.watch(authStateProvider).value;
+    _updateSwipeProgress(state);
 
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) {
+          // Set status back to joined if leaving early
+          if (state.movies.isNotEmpty) {
+            ref.read(webSocketServiceProvider).updateStatus('joined');
+          }
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -54,7 +155,13 @@ class SwipeScreen extends ConsumerWidget {
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          title: const Text('Movie Swipe'),
+          title: Text(
+            'Swiping',
+            style: GoogleFonts.fredoka(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),
@@ -98,58 +205,117 @@ class SwipeScreen extends ConsumerWidget {
             child: state.isLoading
                 ? const Center(
                     child: CupertinoActivityIndicator(
-                      radius: 20, // Makes it a bit larger
+                      radius: 20,
                     ),
                   )
                 : state.movies.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'No movies found!',
-                              style: TextStyle(fontSize: 20),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () => notifier.reset(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    AppColors.primary, // Set background color
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                      30), // Rounded corners
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 8), // Optional padding
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize
-                                    .min, // Ensures the button's size adjusts to its content
+                    ? FutureBuilder<bool>(
+                        future: _interactionService.recordBatchSwipesFromState(
+                          userId: user?.uid ?? '',
+                          state: state,
+                        ),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.refresh,
-                                      color: Colors.white), // Retry icon
-                                  const SizedBox(
-                                      width: 8), // Space between icon and text
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 16),
+                                  Text('Saving your choices...'),
+                                ],
+                              ),
+                            );
+                          }
+
+                          if (snapshot.hasError || snapshot.data == false) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.error_outline_rounded,
+                                    color: Colors.red,
+                                    size: 100,
+                                  ),
+                                  const SizedBox(height: 16),
                                   const Text(
-                                    'Retry',
-                                    style: TextStyle(
-                                        color: Colors
-                                            .white), // Ensure text color contrasts with the background
+                                    'Failed to save choices',
+                                    style: TextStyle(fontSize: 20),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12, horizontal: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(30),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Back to Room',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
+                            );
+                          }
+
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  color: Colors.green,
+                                  size: 100,
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Swiping Complete!',
+                                  style: TextStyle(fontSize: 24),
+                                ),
+                                const SizedBox(height: 24),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12, horizontal: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Back to Room',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       )
                     : Stack(
                         children: state.movies
                             .map((movie) => MovieCard(
                                   movie: movie,
                                   isFront: state.movies.last == movie,
-                                  movieProvider: movieProvider,
+                                  movieProvider: widget.movieProvider,
+                                  onSwipeComplete: (status) =>
+                                      _showSwipeNotification(context, status),
                                 ))
                             .toList(),
                       ),
@@ -157,5 +323,14 @@ class SwipeScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    // Reset status when leaving screen without completing
+    if (ref.read(widget.movieProvider).movies.isNotEmpty) {
+      ref.read(webSocketServiceProvider).updateStatus('joined');
+    }
+    super.dispose();
   }
 }

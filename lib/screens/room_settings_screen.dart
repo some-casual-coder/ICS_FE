@@ -132,7 +132,13 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text('${widget.roomName} Settings'),
+          title: Text(
+            'Settings',
+            style: GoogleFonts.fredoka(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
         body: const Center(
           child: CircularProgressIndicator(),
@@ -280,7 +286,7 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
                   backgroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(30),
                   ),
                 ),
                 child: const Text(

@@ -181,11 +181,15 @@ class MovieNotifier extends StateNotifier<MovieState> {
     );
   }
 
-  void endDragging(Size screenSize) {
+  void endDragging(Size screenSize, [Function(SwipeStatus)? onSwipeComplete]) {
     final status = _getStatus(screenSize);
     final currentMovie = state.movies.isEmpty ? null : state.movies.last;
 
     if (currentMovie == null) return;
+
+    if (onSwipeComplete != null && status != SwipeStatus.none) {
+      onSwipeComplete(status);
+    }
 
     switch (status) {
       case SwipeStatus.interested:

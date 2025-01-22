@@ -3,12 +3,12 @@ import 'dart:io';
 
 import 'package:fliccsy/models/movie_state.dart';
 import 'package:fliccsy/models/room_data.dart';
-import 'package:fliccsy/models/user_data.dart';
 import 'package:fliccsy/providers/auth_provider.dart';
 import 'package:fliccsy/providers/movie_notifier.dart';
 import 'package:fliccsy/screens/lobby_screen.dart';
 import 'package:fliccsy/screens/room_settings_screen.dart';
 import 'package:fliccsy/screens/swipe_screen.dart';
+import 'package:fliccsy/services/batch_interaction_service.dart';
 import 'package:fliccsy/theme/app_colors.dart';
 import 'package:fliccsy/widgets/progress_tracker.dart';
 import 'package:fliccsy/widgets/status_badge.dart';
@@ -290,6 +290,8 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
                           userId: user!.uid,
                         );
                       });
+                      final interactionService = InteractionService();
+                      await interactionService.storeRoomCode(roomData.code);
 
                       if (context.mounted) {
                         Navigator.push(
@@ -316,7 +318,7 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(30),
                   ),
                 ),
                 child: const Text(
