@@ -1,6 +1,7 @@
 import 'package:fliccsy/models/movie_state.dart';
 import 'package:fliccsy/providers/auth_provider.dart';
 import 'package:fliccsy/providers/movie_notifier.dart';
+import 'package:fliccsy/screens/lobby_screen.dart';
 import 'package:fliccsy/services/batch_interaction_service.dart';
 import 'package:fliccsy/services/websockets/websocket_service.dart';
 import 'package:fliccsy/theme/app_colors.dart';
@@ -24,14 +25,11 @@ class SwipeScreen extends ConsumerStatefulWidget {
 
 class _SwipeScreenState extends ConsumerState<SwipeScreen> {
   final _interactionService = InteractionService();
-  final webSocketServiceProvider = Provider((ref) => WebSocketService());
 
   @override
   void initState() {
     super.initState();
-    print('SwipeScreen: Initializing with 15 total movies');
     ref.read(webSocketServiceProvider).updateStatus('swiping');
-    print('SwipeScreen: Status updated to swiping');
   }
 
   void _updateSwipeProgress(MovieState state) {
@@ -116,7 +114,11 @@ class _SwipeScreenState extends ConsumerState<SwipeScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(widget.movieProvider);
     final user = ref.watch(authStateProvider).value;
-    _updateSwipeProgress(state);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateSwipeProgress(state);
+      }
+    });
 
     return PopScope(
       canPop: true,

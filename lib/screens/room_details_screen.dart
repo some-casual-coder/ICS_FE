@@ -54,20 +54,29 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
       if (data['action'] == 'room_details' ||
           data['action'] == 'user_removed' ||
           data['action'] == 'status_updated' ||
-          data['action'] == 'progress_updated') {
-        final oldStatus = roomData.users[data['user_id']]?.status;
-        final oldProgress = roomData.users[data['user_id']]?.swipeProgress;
-        setState(() {
-          roomData = RoomData.fromJson(data['room_data']);
-          print('Room data updated: ${data['action']}');
-        });
-        // Log the changes
-        if (data['action'] == 'status_updated') {
-          print(
-              'RoomDetails: User ${data['user_id']} status changed from $oldStatus to ${data['status']}');
-        } else if (data['action'] == 'progress_updated') {
-          print(
-              'RoomDetails: User ${data['user_id']} progress updated from $oldProgress to ${data['progress']}/${data['total']}');
+          data['action'] == 'progress_updated' ||
+          data['action'] == 'user_joined') {
+        try {
+          final newRoomData = RoomData.fromJson(data['room_data']);
+          setState(() {
+            roomData = newRoomData;
+            print('Room data updated: ${data['action']}');
+          });
+
+          // Log the changes
+          if (data['action'] == 'status_updated') {
+            final oldStatus = roomData.users[data['user_id']]?.status;
+            print(
+                'RoomDetails: User ${data['user_id']} status changed from $oldStatus to ${data['status']}');
+          } else if (data['action'] == 'progress_updated') {
+            final oldProgress = roomData.users[data['user_id']]?.swipeProgress;
+            print(
+                'RoomDetails: User ${data['user_id']} progress updated from $oldProgress to ${data['progress']}/${data['total']}');
+          } else if (data['action'] == 'user_joined') {
+            print('RoomDetails: User joined - updated user list');
+          }
+        } catch (e) {
+          print("Error parsing room data: $e");
         }
       }
     });
@@ -84,6 +93,7 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).value;
+    int? selectedMovieIndex;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -208,49 +218,50 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
                 const SizedBox(height: 8),
                 const CustomDottedDivider(color: AppColors.primary),
                 const SizedBox(height: 8),
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: roomData.users.length,
-                  separatorBuilder: (context, index) => Column(
-                    children: [
-                      const SizedBox(height: 8),
-                      CustomDottedDivider(color: AppColors.primary),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                  itemBuilder: (context, index) {
-                    final user = roomData.users.entries.elementAt(index);
-                    final isHost = user.value.isHost;
-
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                SingleChildScrollView(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: roomData.users.length,
+                    separatorBuilder: (context, index) => Column(
                       children: [
-                        Expanded(
-                          flex: 1,
-                          child: Text(
-                            isHost ? 'You (Host)' : user.value.name,
-                          ),
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: StatusBadge(
-                              status: user.value.status,
+                        const SizedBox(height: 8),
+                        CustomDottedDivider(color: Colors.grey),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                    itemBuilder: (context, index) {
+                      final user = roomData.users.entries.elementAt(index);
+                      final isHost = user.value.isHost;
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              isHost ? 'You (Host)' : user.value.name,
                             ),
                           ),
-                        ),
-                        ProgressTracker(user: user)
-                      ],
-                    );
-                  },
+                          Expanded(
+                            child: Center(
+                              child: StatusBadge(
+                                status: user.value.status,
+                              ),
+                            ),
+                          ),
+                          ProgressTracker(user: user)
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
           ),
           const Spacer(),
-          // Add near other buttons in RoomDetailsScreen
           Padding(
-            padding: const EdgeInsets.only(bottom: 16), // Space between buttons
+            padding: const EdgeInsets.only(bottom: 16),
             child: SizedBox(
               width: 350,
               child: ElevatedButton(
@@ -282,57 +293,213 @@ class _RoomDetailsScreenState extends ConsumerState<RoomDetailsScreen> {
                       // Show recommendations in a dialog
                       showDialog(
                         context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Group Recommendations'),
-                          content: SingleChildScrollView(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: recommendations
-                                  .map(
-                                    (movie) => Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 8.0),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            movie['title'],
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
+                        barrierDismissible: false,
+                        builder: (context) => StatefulBuilder(
+                          builder: (context, setState) {
+                            int? selectedMovieIndex;
+
+                            return AlertDialog(
+                              title: Column(
+                                children: [
+                                  const Text(
+                                    'Group Recommendations',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  Text(
+                                    'Choose the movie you prefer',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                              content: Container(
+                                width: MediaQuery.of(context).size.width * 0.8,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Divider(thickness: 1),
+                                    const SizedBox(height: 16),
+                                    SizedBox(
+                                      height:
+                                          280, // Fixed height for scrollable area
+                                      child: ListView.builder(
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: recommendations.length,
+                                        itemBuilder: (context, index) {
+                                          final movie = recommendations[index];
+
+                                          return Container(
+                                            width:
+                                                180, // Fixed width for each movie card
+                                            margin: EdgeInsets.symmetric(
+                                                horizontal: 8),
+                                            child: GestureDetector(
+                                              onTap: () {
+                                                setState(() {
+                                                  selectedMovieIndex = index;
+                                                });
+                                              },
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.center,
+                                                children: [
+                                                  Container(
+                                                    height:
+                                                        180, // Fixed height for poster
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12),
+                                                      image: DecorationImage(
+                                                        image: NetworkImage(
+                                                          'https://image.tmdb.org/t/p/original${movie['poster_path']}',
+                                                        ),
+                                                        fit: BoxFit.cover,
+                                                      ),
+                                                      border:
+                                                          selectedMovieIndex ==
+                                                                  index
+                                                              ? Border.all(
+                                                                  color: AppColors
+                                                                      .primary,
+                                                                  width: 2)
+                                                              : null,
+                                                      boxShadow:
+                                                          selectedMovieIndex ==
+                                                                  index
+                                                              ? [
+                                                                  BoxShadow(
+                                                                    color: AppColors
+                                                                        .primary
+                                                                        .withOpacity(
+                                                                            0.3),
+                                                                    blurRadius:
+                                                                        8,
+                                                                    spreadRadius:
+                                                                        2,
+                                                                  )
+                                                                ]
+                                                              : null,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Container(
+                                                    height: 40,
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 4),
+                                                    child: Text(
+                                                      movie['title'],
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      maxLines: 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.star_rounded,
+                                                        color: Colors.orange,
+                                                        size: 20,
+                                                      ),
+                                                      Text(
+                                                        ' ${movie['vote_average']}/10',
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color:
+                                                              Colors.grey[800],
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    'Match: ${(movie['final_score'] * 100).toStringAsFixed(0)}%',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Genres: ${(movie['genres'] as List).join(", ")}',
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                          Text(
-                                            'Match Score: ${(movie['poster'] * 100).toStringAsFixed(1)}%',
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                          const Divider(),
-                                        ],
+                                          );
+                                        },
                                       ),
                                     ),
-                                  )
-                                  .toList(),
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Close'),
-                            ),
-                          ],
+                                  ],
+                                ),
+                              ),
+                              actions: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Skip'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {},
+                                      // onPressed: selectedMovieIndex != null
+                                      //     ? () {
+                                      //         final selectedMovie =
+                                      //             recommendations[
+                                      //                 selectedMovieIndex!];
+                                      //         ref
+                                      //             .read(
+                                      //                 webSocketServiceProvider)
+                                      //             .sendMessage({
+                                      //           'action': 'movie_selected',
+                                      //           'room_code': roomData.code,
+                                      //           'movie_id':
+                                      //               selectedMovie['movie_id'],
+                                      //         });
+                                      //         Navigator.pop(context);
+                                      //       }
+                                      // : null,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 24, vertical: 12),
+                                      ),
+                                      child: const Text(
+                                        'Choose This',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       );
                     }

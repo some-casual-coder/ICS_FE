@@ -11,6 +11,9 @@ class ProgressTracker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('ProgressTracker: Building for user ${user.key}');
+    debugPrint(
+        'ProgressTracker: Progress ${user.value.swipeProgress}/${user.value.totalMovies}');
     return Stack(
       alignment: Alignment.centerRight,
       children: [

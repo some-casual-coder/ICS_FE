@@ -46,7 +46,7 @@ class WebSocketService {
     print("listening for data");
     _channel?.stream.listen(
       (message) {
-        print("got data");
+        print(message);
         _isConnected = true;
         final data = jsonDecode(message);
         _messageController.add(data);

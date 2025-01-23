@@ -1,6 +1,8 @@
 // lib/screens/lobby_screen.dart
+import 'package:fliccsy/models/room_data.dart';
 import 'package:fliccsy/providers/auth_provider.dart';
 import 'package:fliccsy/screens/create_room_screen.dart';
+import 'package:fliccsy/screens/room_details_screen.dart';
 import 'package:fliccsy/services/websockets/location_service.dart';
 import 'package:fliccsy/services/websockets/websocket_service.dart';
 import 'package:fliccsy/theme/app_colors.dart';
@@ -107,6 +109,17 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
           if (isHost) {
             _showJoinRequest(data['user_id'], data['user_name']);
           }
+          break;
+
+        case 'approve_user':
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => RoomDetailsScreen(
+                initialRoomData: RoomData.fromJson(data['room_data']),
+              ),
+            ),
+          );
           break;
 
         default:
